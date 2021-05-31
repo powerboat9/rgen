@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <alloca.h>
 #include <string.h>
-#include "nfa.h"
+#include "fa.h"
 
 struct nfa *nfa_from_char_list(char *s, size_t len) {
     struct nfa_jmp_entry *n0_jmps = malloc(sizeof(struct nfa_jmp_entry) * len);
@@ -17,9 +17,9 @@ struct nfa *nfa_from_char_list(char *s, size_t len) {
     nodes[1].jmp_cnt = 0;
     nodes[1].jmps = NULL;
     nodes[1].can_end = 1;
-    struct nfa ret;
-    ret.node_cnt = 2;
-    ret.nodes = nodes;
+    struct nfa *ret = malloc(sizeof(struct nfa));
+    ret->node_cnt = 2;
+    ret->nodes = nodes;
     return ret;
 }
 
@@ -161,13 +161,13 @@ void dfa_free(struct dfa *a) {
     free(a);
 }
 
-static int qsort_sizet_cmp(void *a, void *b) {
+static int qsort_sizet_cmp(const void *a, const void *b) {
     size_t av = *(size_t *)a;
     size_t bv = *(size_t *)b;
     return (int) (av - bv);
 }
 
-inline void qsort_sizet(size_t *base, size_t num) {
+static inline void qsort_sizet(size_t *base, size_t num) {
     qsort(base, num, sizeof(size_t), qsort_sizet_cmp);
 }
 
@@ -209,7 +209,7 @@ struct dfa *nfa_to_dfa(struct nfa *a) {
         }
     }
     // E-> jumps are taken care of, finally generate dfa
-    struct dfa_node *new_nodes = malloc(sizeof(dfa_node));
+    struct dfa_node *new_nodes = malloc(sizeof(struct dfa_node));
     // node_cnt == gen_table_len
     // no need to store a node count
     size_t **gen_table = malloc(sizeof(size_t *));
@@ -220,7 +220,7 @@ struct dfa *nfa_to_dfa(struct nfa *a) {
     gen_table[0][0] = 1;
     gen_table[0][1] = 0;
     // generate dfa nodes until there are none left to generate
-    while (size_t i = 0; i < gen_table_len; i++) {
+    for (size_t i = 0; i < gen_table_len; i++) {
         // handle jump translation
         size_t *tmp_lists[256];
         size_t tmp_list_lens[256];
@@ -246,6 +246,7 @@ struct dfa *nfa_to_dfa(struct nfa *a) {
             }
             // create
             gen_table = realloc(gen_table, sizeof(size_t *) * (gen_table_len + 1));
+            new_nodes = realloc(new_nodes, sizeof(struct dfa_node) * (gen_table_len + 1));
             gen_table[gen_table_len] = malloc(sizeof(size_t) * (tmp_list_lens[j] + 1));
             gen_table[gen_table_len][0] = tmp_list_lens[j];
             memcpy(gen_table[gen_table_len] + 1, tmp_lists[j], sizeof(size_t) * tmp_list_lens[j]);
@@ -283,7 +284,7 @@ struct nfa *dfa_to_nfa(struct dfa *a) {
         }
     }
     struct nfa *ret = malloc(sizeof(struct nfa));
-    ret->node_cnt = a->nodes;
+    ret->node_cnt = a->node_cnt;
     ret->nodes = new_nodes;
     // free a, no memory reuse
     free(a->nodes);
